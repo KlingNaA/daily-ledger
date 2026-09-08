@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 复古报纸配色：旧纸 / 墨色 / 印章红 -->
+    <color name="paper">#F5EFE2</color>
+    <color name="paper_card">#FBF6EA</color>
+    <color name="paper_deep">#EDE4D0</color>
+    <color name="ink">#221D15</color>
+    <color name="ink_soft">#5C5346</color>
+    <color name="ink_faint">#A99F8C</color>
+    <color name="rule">#C9BFA8</color>
+    <color name="seal_red">#A63A2B</color>
+    <color name="seal_red_dark">#8C2F23</color>
+
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

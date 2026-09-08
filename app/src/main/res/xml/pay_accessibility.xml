@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 无障碍服务系统配置：canRetrieveWindowContent 是 capability，必须在此声明，
+     代码里 setServiceInfo 整体覆盖会把它丢掉（capabilities=0 → getRootInActiveWindow 恒 null） -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagIncludeNotImportantViews"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/acc_hint"
+    android:notificationTimeout="100" />

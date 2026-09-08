@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 记账小票：窗口背景已是双线框纸片，这里只排版 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="@string/quick_record_title"
+        android:textColor="@color/ink"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.2" />
+
+    <TextView
+        android:id="@+id/tvEditTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:textColor="@color/ink_faint"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="10dp"
+        android:background="@color/ink" />
+
+    <TextView
+        android:id="@+id/tvQueuePos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:textColor="@color/seal_red"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <EditText
+        android:id="@+id/etAmount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@android:color/transparent"
+        android:gravity="center"
+        android:hint="@string/hint_amount"
+        android:importantForAutofill="no"
+        android:inputType="numberDecimal"
+        android:textColor="@color/seal_red"
+        android:textColorHint="@color/ink_faint"
+        android:textSize="40sp"
+        android:textStyle="bold" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginBottom="8dp"
+        android:background="@color/rule" />
+
+    <EditText
+        android:id="@+id/etNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_note"
+        android:importantForAutofill="no"
+        android:inputType="text"
+        android:textColor="@color/ink"
+        android:textColorHint="@color/ink_faint"
+        android:textSize="14sp" />
+
+    <GridLayout
+        android:id="@+id/gridCategory"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:columnCount="4" />
+
+    <Button
+        android:id="@+id/btnSave"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/bg_stamp"
+        android:text="@string/save"
+        android:textColor="@color/paper"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/btnSkip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:padding="6dp"
+        android:text="@string/btn_skip_entry"
+        android:textColor="@color/ink_faint"
+        android:textSize="13sp"
+        android:visibility="gone" />
+</LinearLayout>

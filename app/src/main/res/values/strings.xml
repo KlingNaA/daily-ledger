@@ -1,0 +1,143 @@
+<resources>
+    <string name="app_name">本地记账</string>
+
+    <!-- 报头 -->
+    <string name="masthead_title">记账日报</string>
+    <string name="masthead_subtitle">THE DAILY LEDGER · 数据不出手机</string>
+    <string name="masthead_edition">家庭理财 · 第壹版</string>
+
+    <string name="quick_record_title">记 一 笔</string>
+    <string name="edit_record_title">修 改 这 一 笔</string>
+    <string name="edit_time_fmt">记账时间：%1$s（点按可修改）</string>
+    <string name="edit_save">修改存档</string>
+    <string name="hint_amount">金额</string>
+    <string name="hint_note">备注（可选）</string>
+    <string name="save">盖章存档</string>
+    <string name="saved">已记录 ✓</string>
+    <string name="err_amount_required">请输入金额</string>
+    <string name="err_amount_invalid">金额无效</string>
+    <string name="queue_pos">第 %1$d / %2$d 笔待记</string>
+    <string name="queue_saved">已记 %1$d/%2$d 笔，继续下一笔</string>
+    <string name="btn_skip_entry">这笔先不记，跳过 →</string>
+    <string name="skipped">已跳过</string>
+    <string name="notif_multi_title">刚付了 %1$d 笔？</string>
+    <string name="notif_multi_text">合计 ¥%1$.2f · 点开逐笔确认</string>
+    <string name="record_notification_text_fmt">¥%.2f · 点击记一笔</string>
+
+    <string name="month_total_label">本月支出</string>
+    <string name="month_total_format">¥ %.2f</string>
+    <string name="section_chart">本 月 分 类</string>
+    <string name="section_records">当 月 流 水</string>
+    <string name="prev_month">◀ 上月</string>
+    <string name="next_month">下月 ▶</string>
+    <string name="btn_add_record">＋ 记一笔</string>
+    <string name="notice_title">启事 · 首次使用</string>
+    <string name="record_notification_channel">支付提醒</string>
+    <string name="record_notification_title">刚付了一笔？</string>
+    <string name="record_notification_text">点击记一笔</string>
+    <string name="btn_notification_access">开启通知监听权限</string>
+    <string name="btn_overlay_permission">开启悬浮窗权限</string>
+    <string name="btn_fullscreen_permission">允许锁屏时弹出提醒</string>
+    <string name="btn_sms_permission">＋ 银行扣款短信兜底（可选）</string>
+
+    <!-- 版面切换 / 统计页 -->
+    <string name="tab_ledger">壹 版 · 流 水</string>
+    <string name="tab_stats">贰 版 · 统 计</string>
+    <string name="stats_title">统计年鉴</string>
+    <string name="stats_subtitle">THE ANNUAL LEDGER · 全年一本账</string>
+    <string name="stats_edition">全年总览 · 每月一笔</string>
+    <string name="year_total_label">年度支出</string>
+    <string name="year_avg_label">月均支出</string>
+    <string name="stats_hint">印章红 = 当年支出最高的月份 · 左右滑动可翻版面</string>
+    <string name="stats_section_months">本 年 各 月</string>
+    <string name="year_prev">◀ 上一年</string>
+    <string name="year_next">下一年 ▶</string>
+    <string name="month_picker_title">选 择 年 月</string>
+    <string name="ok">确定</string>
+    <string name="delete_label">删 除</string>
+    <string name="sms_notice_title">启事 · 银行卡扣款兜底</string>
+    <string name="sms_notice_body">美团、抖音等平台直连银行卡付款时可能不发通知。开启短信权限后，可从银行扣款短信（消费/支出/扣款…）识别记账。短信内容只在本机解析，同样不出手机。</string>
+    <string name="sms_enabled">已开启：将从银行扣款短信识别支出</string>
+    <string name="sms_disabled">未授权，短信兜底保持关闭</string>
+
+    <!-- 底部导航 / 我的 -->
+    <string name="nav_ledger">壹 · 记账</string>
+    <string name="nav_stats">贰 · 统计</string>
+    <string name="nav_mine">叁 · 我的</string>
+    <string name="mine_title">我的</string>
+    <string name="mine_subtitle">"THE READER\'S DESK · 设置与数据"</string>
+    <string name="mine_edition">订户服务 · 本机账房</string>
+    <string name="section_permissions">权 限 管 理</string>
+    <string name="section_export">数 据 导 出</string>
+    <string name="perm_acc">微信转账/红包识别（无障碍）</string>
+    <string name="acc_service_label">记账·微信转账红包识别</string>
+    <string name="acc_hint">微信好友转账/红包不发系统通知，开启本服务可在微信「支付成功/转账成功」页出现时自动弹出记账（仅监听微信与支付宝窗口，本机判定，无网络权限，不读其他应用）。</string>
+    <string name="perm_notif">通知监听（自动弹窗）</string>
+    <string name="perm_overlay">悬浮窗（立即弹出）</string>
+    <string name="perm_fullscreen">锁屏弹出提醒</string>
+    <string name="perm_sms">银行短信兜底</string>
+    <string name="perm_miui_popup">后台弹出界面（小米专用）</string>
+    <string name="perm_miui_battery">自启动与省电策略（小米专用）</string>
+    <string name="status_on">● 已开启</string>
+    <string name="status_off">○ 未开启</string>
+    <string name="status_advice">！务必开启</string>
+    <string name="status_undetectable">○ 无法检测·以系统为准</string>
+    <string name="btn_go">前往</string>
+    <string name="btn_export">导出全部记录为 CSV</string>
+    <string name="export_hint">保存到系统「下载」目录，Excel / WPS 可直接打开，全程不联网</string>
+    <string name="export_done">已导出到：%1$s</string>
+    <string name="export_failed">导出失败，请重试</string>
+    <string name="about_line1">本地记账 v1.4 · 复古报纸版</string>
+    <string name="about_line2">本应用未申请 INTERNET 权限，所有数据只保存在本机</string>
+    <string name="xiaomi_hint">小米/红米提示：请在本页逐一开启上述权限（尤其「后台弹出界面」与「自启动」），并将省电策略设为「无限制」，付款后的弹窗才不会被系统拦截。</string>
+
+    <!-- v1.4 分类/队列/触发日志 -->
+    <string name="section_cats_queue">分 类 与 队 列</string>
+    <string name="row_categories">自定义分类</string>
+    <string name="row_trigger_log">触发日志（漏弹误弹排查）</string>
+    <string name="queue_empty">待记队列空</string>
+    <string name="queue_info_fmt">待记 %1$d 笔 · 合计 ¥%2$.2f</string>
+    <string name="back">← 返回</string>
+    <string name="title_category_manage">分 类 管 理</string>
+    <string name="hint_new_category">新分类名（最多 8 个字）</string>
+    <string name="btn_add_cat">添 加 分 类</string>
+    <string name="err_cat_exists">分类已存在</string>
+    <string name="cat_delete_confirm">删除该分类？</string>
+    <string name="cat_delete_in_use">该分类有流水记录，无法删除</string>
+    <string name="cat_builtin">内置</string>
+    <string name="category_manage_hint">新分类追加在末尾，▲▼ 调整顺序；内置分类不可删除</string>
+    <string name="title_trigger_log">触 发 日 志</string>
+    <string name="btn_clear_log">清空</string>
+    <string name="btn_export_log">导出日志</string>
+    <string name="log_empty_short">暂无日志</string>
+    <string name="log_cleared">日志已清空</string>
+    <string name="log_empty">暂无识别记录\n支付后这里会显示每条通知/短信的判定过程</string>
+    <string name="log_untitled">未知来源</string>
+    <string name="log_result_queued_popup">已触发 · 弹窗</string>
+    <string name="log_result_queued_notify">已触发 · 通知兜底</string>
+    <string name="log_result_popup_blocked">已触发 · 弹窗被拦转通知</string>
+    <string name="log_result_not_payment">非支出文本</string>
+    <string name="log_result_not_whitelist">非支付应用</string>
+    <string name="log_result_no_text">无文本内容</string>
+    <string name="log_result_self">自身通知</string>
+    <string name="log_result_dup_key">重复通知</string>
+    <string name="log_result_dup_amount">同金额去重</string>
+    <string name="log_result_sms_not_debit">非支出短信</string>
+    <string name="log_result_sms_no_amount">短信无金额</string>
+    <string name="log_result_acc_trigger">无障碍已触发</string>
+    <string name="log_result_acc_armed">进入转账/红包页</string>
+    <string name="log_result_acc_pay_dialog">支付密码框出现</string>
+    <string name="log_result_acc_settle_read">支付后核验回执…</string>
+    <string name="log_result_acc_settle_no_receipt">未见支付回执（可能取消）</string>
+    <string name="log_result_acc_page">支付页出现（观察）</string>
+    <string name="log_result_acc_debug_page">窗口切换（调试）</string>
+    <string name="log_result_acc_no_root">页面读取失败</string>
+    <string name="log_result_acc_empty_page">页面无文本</string>
+    <string name="log_result_acc_no_success">支付页无"成功"字样</string>
+    <string name="log_result_acc_not_payment">页面非支出文本</string>
+    <string name="delete_confirm">删除这条记录？</string>
+    <string name="delete">删除</string>
+    <string name="edit">编辑</string>
+    <string name="cancel">取消</string>
+    <string name="no_records">本月暂无记录</string>
+</resources>

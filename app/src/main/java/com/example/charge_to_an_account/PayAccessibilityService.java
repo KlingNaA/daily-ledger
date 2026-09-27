@@ -12,6 +12,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 无障碍识别 v2（补"微信好友转账/红包不发系统通知"盲区，参考钱迹等同类产品路线）：
@@ -31,12 +32,15 @@ public class PayAccessibilityService extends AccessibilityService {
     private long lastPageAt;
     private long lastDebugLogAt;
 
-    /** 支付流程状态机 v6：armed 状态跨类共享（通知监听通道也用它结算回执）。
-     *  回执（[轉賬]/[微信红包]）通过三条通道到达：无障碍 Toast（微信后台时）、
-     *  无障碍读屏、系统通知（通知监听，真机实测最稳定）——任一命中即结算 */
-    private static volatile boolean armed;
+    /** 支付流程状态机：armed 状态跨类共享（通知监听通道也用它结算回执）。
+     *  AtomicBoolean + 原子消费：无障碍主线程与通知监听 binder 线程并发结算同一笔时，
+     *  只有 compareAndSet 成功的那一方触发（v1.6.4 修双触发/丢金额竞态） */
+    private static final AtomicBoolean ARMED = new AtomicBoolean(false);
     private static volatile double payAmount;   // armed 时从页面读到的金额（读不到=0，弹窗手填）
     private static volatile long armedAt;
+    /** 密码框已出现：UIPageFragment 是微信通用容器（聊天列表/个人页都是），
+     *  结算必须以"密码框之后的完成页"为前提，防 armed 后闲逛误触（v1.6.4 收紧） */
+    private static volatile boolean sawPayDialog;
 
     static {
         WATCHED.add("com.tencent.mm");
@@ -90,7 +94,7 @@ public class PayAccessibilityService extends AccessibilityService {
                     }
                 }
                 if (text.isEmpty()) return;
-                handleText(pkg, "toast:" + text, text, true);
+                handleText(pkg, "toast:" + text, text, true, true);
                 break;
             }
             case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED: {
@@ -98,17 +102,22 @@ public class PayAccessibilityService extends AccessibilityService {
                 String title = joinText(event.getText());
                 String cls = String.valueOf(event.getClassName());
                 String desc = cls + (title.isEmpty() ? "" : " | " + title);
-                String sig = (cls + " " + title).toLowerCase();
+                String sig = (cls + " " + title).toLowerCase(java.util.Locale.ROOT);
 
-                // ── 结算（v9 纯事件序列）：armed 后出现支付完成页（UIPageFragment）= 支付成功。
-                //  该序列真机多次实证 100% 到达；读屏在此机型为空树（微信内容隐藏），不再依赖文本。
-                //  金额读不到时弹窗手填。取消支付不经过完成页，不会误触。 ──
-                if (armed && System.currentTimeMillis() - armedAt < 90_000
-                        && sig.contains("uipagefragment")) {
-                    double amount = payAmount;
-                    log("微信", desc, "acc_trigger", amount);
-                    resetPayState();
-                    PaymentListenerService.trigger(this, amount, "微信", "微信支付");
+                // 支付相关窗口（转账/红包/收银台…）：既用于 arm，也用于决定诊断日志是否值得记
+                boolean payish = sig.contains("pay") || sig.contains("支付") || sig.contains("红包")
+                        || sig.contains("转账") || sig.contains("轉賬") || sig.contains("luckymoney")
+                        || sig.contains("remittance") || sig.contains("redenvelop");
+
+                // ── 结算（纯事件序列）：armed 且已见过密码框 → 支付完成页（UIPageFragment）= 支付成功。
+                //  完成页仅在密码框之后出现（取消不经过），sawPayDialog 前置防 armed 后闲逛误触。
+                //  tryConsumeArmed 原子消费：多通道并发结算只成功一方。 ──
+                if (sawPayDialog && sig.contains("uipagefragment")) {
+                    double amount = tryConsumeArmed(90_000);
+                    if (amount >= 0) {
+                        log("微信", desc, "acc_trigger", amount);
+                        PaymentListenerService.trigger(this, amount, "微信", "微信支付");
+                    }
                     return;
                 }
 
@@ -117,30 +126,31 @@ public class PayAccessibilityService extends AccessibilityService {
                         || sig.contains("redenvelop") || sig.contains("walletpay")
                         || sig.contains("payui") || sig.contains("dialog.k2")
                         || title.contains("Weixin Pay")) {
-                    armed = true;
+                    boolean payDialog = sig.contains("dialog") || sig.contains("k2")
+                            || sig.contains("payui");
+                    ARMED.set(true);
                     armedAt = now;
                     payAmount = 0; // 新支付流程重读金额
+                    if (payDialog) sawPayDialog = true;
                     readAmountFromScreen();
-                    log("微信", desc, "acc_armed", payAmount);
+                    log("微信", desc, payDialog ? "acc_pay_dialog" : "acc_armed", payAmount);
+                    armSettleTimeout();
                 }
 
                 if (now - lastPageAt < 800) return; // 以下日志/通用读屏限流
                 lastPageAt = now;
 
                 // 日志降噪：支付相关窗口必记；普通窗口 debug 下 10s 节流（防环形日志被刷掉关键判定）
-                boolean payish = sig.contains("pay") || sig.contains("支付") || sig.contains("红包")
-                        || sig.contains("转账") || sig.contains("轉賬") || sig.contains("luckymoney")
-                        || sig.contains("remittance") || sig.contains("redenvelop");
                 long nowLog = System.currentTimeMillis();
                 if (payish || (debuggable && nowLog - lastDebugLogAt > 10_000)) {
                     if (!payish) lastDebugLogAt = nowLog;
                     log(pkg, desc, debuggable && !payish ? "acc_debug_page" : "acc_page", -1);
                 }
-                readScreen(pkg, "win:" + desc);
+                readScreen(pkg, "win:" + desc, payish);
                 break;
             }
             case AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED: {
-                readScreen(pkg, "content");
+                readScreen(pkg, "content", false);
                 break;
             }
             default:
@@ -163,35 +173,44 @@ public class PayAccessibilityService extends AccessibilityService {
         }, 800);
     }
 
-    /** 供通知监听通道查询：是否处于支付流程中（armed 且 90s 内） */
+    /** 供通知监听通道查询：是否处于支付流程中（armed 且窗口期内）——只读，不消费 */
     public static boolean isArmedWithin(long windowMs) {
-        return armed && System.currentTimeMillis() - armedAt < windowMs;
+        return ARMED.get() && System.currentTimeMillis() - armedAt < windowMs;
     }
 
-    /** 供通知监听通道读取 armed 时读到的金额 */
-    public static double armedAmount() {
-        return payAmount;
-    }
-
-    /** 供通知监听通道在回执结算后重置状态（防多通道重复触发） */
-    public static void resetArmed() {
-        resetPayState();
+    /** 原子消费 armed 状态：窗口期内 CAS 成功返回 armed 金额（可能为 0），失败返回 -1。
+     *  三条结算通道（窗口序列/回执Toast/回执通知）共用，保证同一笔只触发一次 */
+    public static double tryConsumeArmed(long windowMs) {
+        if (!isArmedWithin(windowMs)) return -1;
+        if (ARMED.compareAndSet(true, false)) {
+            double amount = payAmount;
+            payAmount = 0;
+            armedAt = 0;
+            sawPayDialog = false;
+            return amount;
+        }
+        return -1;
     }
 
     private static void resetPayState() {
-        armed = false;
+        ARMED.set(false);
         payAmount = 0;
         armedAt = 0;
+        sawPayDialog = false;
     }
 
     /** 限流读当前页文本并判定（微信支付结果页停留短，限流收紧到 700ms/延迟 300ms 防错过） */
-    private void readScreen(String pkg, String origin) {
+    private void readScreen(String pkg, String origin, boolean payish) {
         long now = System.currentTimeMillis();
         if (now - lastReadAt < 700) return;
         lastReadAt = now;
         handler.postDelayed(() -> {
             AccessibilityNodeInfo root = getRootInActiveWindow();
-            if (root == null) return;
+            if (root == null) {
+                // 读屏失败也要落日志：否则"没触发"和"没读到"在触发日志里长得一样（v1.6 修）
+                if (payish) log(sourceOf(pkg), origin, "acc_no_root", -1);
+                return;
+            }
             // 只读微信/支付宝自己的窗口（避免把 launcher/键盘读进来）
             CharSequence rp = root.getPackageName();
             if (rp == null) return;
@@ -204,37 +223,74 @@ public class PayAccessibilityService extends AccessibilityService {
             StringBuilder sb = new StringBuilder();
             collectText(root, sb, 0);
             String text = sb.toString().trim();
-            if (text.isEmpty()) return;
-            handleText(pkg, origin, text, false);
+            if (text.isEmpty()) {
+                if (payish) log(sourceOf(pkg), origin, "acc_empty_page", -1);
+                return;
+            }
+            handleText(pkg, origin, text, false, payish);
         }, 300);
     }
 
+    private static String sourceOf(String pkg) {
+        return pkg != null && (pkg.contains("Alipay") || pkg.contains("alipay")) ? "支付宝" : "微信";
+    }
+
+    /** armed 后 90s 内没等到支付完成页：多半是用户取消/超时，落一条日志便于排查（并复位状态） */
+    private void armSettleTimeout() {
+        handler.removeCallbacks(settleTimeout);
+        handler.postDelayed(settleTimeout, 90_000);
+    }
+
+    private final Runnable settleTimeout = () -> {
+        if (ARMED.get() && System.currentTimeMillis() - armedAt >= 85_000) {
+            log("微信", "进入支付页后 90s 未见支付完成页", "acc_settle_no_receipt", payAmount);
+            resetPayState();
+        }
+    };
+
+    @Override
+    public void onDestroy() {
+        // 服务销毁时清掉所有延迟任务（800ms 读金额/300ms 读屏/90s 结算超时），防泄漏与死服务上执行
+        handler.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
+
+    @Override
+    public void onInterrupt() {
+    }
+
     /** 统一文本判定：①微信回执结算（armed 后 90s 内收到 [轉賬]/[微信红包] 消息 = 本人支出，最可靠锚点）
-     *  ②常规文本：支出词+金额+收入排除（isPaymentText）；读屏另需"成功"，Toast 不需要 */
-    private void handleText(String pkg, String origin, String text, boolean isToast) {
-        String source = pkg.contains("Alipay") || pkg.contains("alipay") ? "支付宝" : "微信";
+     *  ②常规文本：支出词+金额+收入排除（isPaymentText）；读屏另需"成功"，Toast 不需要
+     *  payish：窗口本身像支付页——只有这种情况才值得落"没命中"诊断日志，否则环形 50 条会被刷掉 */
+    private void handleText(String pkg, String origin, String text, boolean isToast, boolean payish) {
+        String source = sourceOf(pkg);
         try {
-            // ① 回执驱动结算：真机实测 [轉賬]/[微信红包] 消息以 toast/通知事件 100% 到达
+            // ① 回执驱动结算：真机实测 [轉賬]/[微信红包] 消息以 toast/通知事件 100% 到达；
+            //    原子消费 armed，多通道并发只触发一次
             boolean transferReceipt = text.contains("[轉賬]") || text.contains("[转账]");
             boolean redPacketReceipt = text.contains("[微信紅包]") || text.contains("[微信红包]")
                     || text.contains("恭喜發財") || text.contains("恭喜发财");
-            if ((transferReceipt || redPacketReceipt) && armed
-                    && System.currentTimeMillis() - armedAt < 90_000) {
-                String label = redPacketReceipt ? "微信红包" : "微信转账";
-                log("微信", shorten(text), "acc_trigger", payAmount);
-                resetPayState();
-                PaymentListenerService.trigger(this, payAmount, "微信", label);
-                return;
+            if (transferReceipt || redPacketReceipt) {
+                double amount = tryConsumeArmed(90_000);
+                if (amount >= 0) {
+                    String label = redPacketReceipt ? "微信红包" : "微信转账";
+                    log("微信", shorten(text), "acc_trigger", amount);
+                    PaymentListenerService.trigger(this, amount, "微信", label);
+                    return;
+                }
             }
             if (!isToast) {
                 // 读屏（竞品同款无状态路线）：页面文本含支付完成特征即强信号，繁简双套
                 boolean payDone = text.contains("成功")
                         || text.contains("已支付") || text.contains("已付款")
                         || text.contains("已轉賬") || text.contains("已转账");
-                if (!payDone) return;
+                if (!payDone) {
+                    if (payish) log(source, shorten(text), "acc_no_success", -1);
+                    return;
+                }
             }
             if (!PaymentListenerService.isPaymentText(text)) {
-                if (isToast) log(source, shorten(text), "acc_not_payment", -1);
+                if (isToast || payish) log(source, shorten(text), "acc_not_payment", -1);
                 return;
             }
             double amount = PaymentListenerService.parseAmount(text);
@@ -254,7 +310,19 @@ public class PayAccessibilityService extends AccessibilityService {
             sb.append(t).append(' ');
         }
         for (int i = 0; i < node.getChildCount() && i < 50; i++) {
-            collectText(node.getChild(i), sb, depth + 1);
+            AccessibilityNodeInfo child = null;
+            try {
+                child = node.getChild(i);
+                collectText(child, sb, depth + 1);
+            } finally {
+                // API < 33 上节点来自对象池，不回收会持续制造 "Could not recycle" 抖动（v1.6 修）
+                if (child != null) {
+                    try {
+                        child.recycle();
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
         }
     }
 
@@ -276,9 +344,5 @@ public class PayAccessibilityService extends AccessibilityService {
             RecordDbHelper.get(this).logTrigger(System.currentTimeMillis(), source, text, result, amount);
         } catch (Exception ignored) {
         }
-    }
-
-    @Override
-    public void onInterrupt() {
     }
 }

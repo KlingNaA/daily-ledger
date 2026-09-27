@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 圆角尺度（统一在这里调）：复古报纸风保留直线条，只用小半径把"棱角"磨润 -->
+<resources>
+    <!-- 卡片/弹窗（双线框） -->
+    <dimen name="radius_card">14dp</dimen>
+    <!-- 内层线框 = 外框 - 3dp 内缩，保持同心 -->
+    <dimen name="radius_card_inner">11dp</dimen>
+    <!-- 按钮（印章条、前往、导出…） -->
+    <dimen name="radius_button">10dp</dimen>
+    <!-- 铅字分类块、状态标签 -->
+    <dimen name="radius_chip">6dp</dimen>
+    <!-- 左滑操作按钮、导航选中底 -->
+    <dimen name="radius_action">12dp</dimen>
+</resources>

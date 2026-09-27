@@ -21,9 +21,20 @@
         <item name="android:editTextColor">@color/ink</item>
 
         <item name="materialButtonStyle">@style/Ledger.Button.Outlined</item>
+
+        <!-- 二级页（分类管理/触发日志）推入推出手感；主界面从桌面进入也走这套 -->
+        <item name="android:windowAnimationStyle">@style/Ledger.Anim.Page</item>
     </style>
 
-    <!-- 记账小窗：方形纸片 + 双线框 -->
+    <!-- 页面切换：新版右侧微移淡入，旧版轻微缩小淡出 -->
+    <style name="Ledger.Anim.Page" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/page_in</item>
+        <item name="android:activityOpenExitAnimation">@anim/page_hold</item>
+        <item name="android:activityCloseEnterAnimation">@anim/page_hold</item>
+        <item name="android:activityCloseExitAnimation">@anim/page_out</item>
+    </style>
+
+    <!-- 记账小窗：圆角纸片 + 双线框，缩放淡入淡出 -->
     <style name="Theme.Charge_to_an_account.QuickRecord" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
         <item name="colorPrimary">@color/seal_red</item>
         <item name="colorOnPrimary">@color/paper</item>
@@ -35,9 +46,15 @@
         <item name="android:textColor">@color/ink</item>
         <item name="android:textColorPrimary">@color/ink</item>
         <item name="android:editTextColor">@color/ink</item>
+        <item name="android:windowAnimationStyle">@style/Ledger.Anim.Dialog</item>
     </style>
 
-    <!-- 铅字按钮：直角、细墨框 -->
+    <style name="Ledger.Anim.Dialog" parent="@android:style/Animation.Dialog">
+        <item name="android:windowEnterAnimation">@anim/dialog_in</item>
+        <item name="android:windowExitAnimation">@anim/dialog_out</item>
+    </style>
+
+    <!-- 铅字按钮：细墨框 + 小圆角 -->
     <style name="Ledger.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
         <item name="android:fontFamily">serif</item>
         <item name="android:textSize">14sp</item>
@@ -45,20 +62,22 @@
         <item name="android:textColor">@color/ink</item>
         <item name="strokeColor">@color/ink</item>
         <item name="strokeWidth">1dp</item>
-        <item name="cornerRadius">0dp</item>
+        <item name="cornerRadius">@dimen/radius_button</item>
         <item name="rippleColor">@color/paper_deep</item>
         <item name="android:letterSpacing">0.05</item>
+        <item name="android:stateListAnimator">@null</item>
     </style>
 
-    <!-- 印章按钮：满版印章红 -->
+    <!-- 印章按钮：满版印章红 + 小圆角 -->
     <style name="Ledger.Button.Stamp" parent="Widget.MaterialComponents.Button">
         <item name="android:fontFamily">serif</item>
         <item name="android:textSize">15sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:textColor">@color/paper</item>
         <item name="backgroundTint">@color/seal_red</item>
-        <item name="cornerRadius">0dp</item>
+        <item name="cornerRadius">@dimen/radius_button</item>
         <item name="rippleColor">@color/seal_red_dark</item>
+        <item name="android:stateListAnimator">@null</item>
     </style>
 
     <!-- 报刊文字按钮（翻月） -->

@@ -28,6 +28,10 @@ public class MonthBarsView extends View {
     private final Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint amountPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
+    /** 柱子生长进度 0→1 与数据指纹（数据没变就不重播，避免页面恢复时乱抖） */
+    private float grow = 1f;
+    private String dataKey = "";
+    private android.animation.ValueAnimator growAnim;
 
     public MonthBarsView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -45,11 +49,47 @@ public class MonthBarsView extends View {
     /** 传入 12 个月的支出总额（下标 0 = 1 月）。 */
     public void setData(double[] sums) {
         max = 0;
+        StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 12; i++) {
             monthly[i] = sums[i];
             if (sums[i] > max) max = sums[i];
+            sb.append(Math.round(sums[i] * 100)).append(',');
         }
+        String key = sb.toString();
+        boolean changed = !key.equals(dataKey);
+        dataKey = key;
+        if (changed) startGrow();
         invalidate();
+    }
+
+    /** 柱子从底部生长（数据变化时播放） */
+    private void startGrow() {
+        if (growAnim != null) growAnim.cancel();
+        if (max <= 0) {
+            grow = 1f;
+            return;
+        }
+        grow = 0f;
+        // post：等这一帧布局完成（首次加载时视图还没 attach）再开播
+        post(this::runGrow);
+    }
+
+    private void runGrow() {
+        grow = 0f;
+        growAnim = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        growAnim.setDuration(560);
+        growAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(1.4f));
+        growAnim.addUpdateListener(a -> {
+            grow = (float) a.getAnimatedValue();
+            invalidate();
+        });
+        growAnim.start();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (growAnim != null) growAnim.cancel();
     }
 
     @Override
@@ -75,18 +115,29 @@ public class MonthBarsView extends View {
             float cx = slot * i + slot / 2f;
             float left = cx - barW / 2;
             float right = cx + barW / 2;
-            float barH = max > 0 ? (float) (monthly[i] / max * chartH) : 0;
+            float barH = max > 0 ? (float) (monthly[i] / max * chartH) * grow : 0;
             float top = chartBottom - Math.max(barH, 1.5f * density);
+            int alpha = (int) (255 * Math.min(1f, grow * 1.2f)); // 文字稍早到位
 
             if (monthly[i] > 0 && i == maxIdx) {
-                canvas.drawRect(left, top, right, chartBottom, solidPaint);
+                solidPaint.setAlpha(alpha);
+                // 柱顶圆角（底部保持直角，立在基线上）
+                float r = Math.min(barW / 2f, 5f * density);
+                rect.set(left, top, right, chartBottom);
+                canvas.drawRoundRect(rect, r, r, solidPaint);
+                canvas.drawRect(left, chartBottom - r, right, chartBottom, solidPaint);
                 // 红柱顶部标金额
                 String amount = formatAmount(monthly[i]);
                 amountPaint.setTextSize(11f * density);
+                amountPaint.setAlpha(alpha);
                 float tw = amountPaint.measureText(amount);
                 canvas.drawText(amount, cx - tw / 2, top - 4f * density, amountPaint);
             } else if (monthly[i] > 0) {
-                canvas.drawRect(left, top, right, chartBottom, strokePaint);
+                strokePaint.setAlpha(alpha);
+                hatchPaint.setAlpha(alpha);
+                float r = Math.min(barW / 2f, 5f * density);
+                rect.set(left, top, right, chartBottom);
+                canvas.drawRoundRect(rect, r, r, strokePaint);
                 int save = canvas.save();
                 canvas.clipRect(left + 1, top + 1, right - 1, chartBottom - 1);
                 float gap = 4.5f * density;
@@ -97,6 +148,7 @@ public class MonthBarsView extends View {
             }
 
             labelPaint.setTextSize(11f * density);
+            labelPaint.setAlpha((int) (255 * Math.min(1f, grow + 0.25f)));
             String label = String.format(Locale.CHINA, "%d", i + 1);
             float lw = labelPaint.measureText(label);
             canvas.drawText(label, cx - lw / 2, h - 3f * density, labelPaint);

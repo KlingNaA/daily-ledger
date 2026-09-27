@@ -70,6 +70,20 @@ public class QuickRecordActivity extends Activity {
             java.util.Collections.addAll(categories, FALLBACK_CATEGORIES);
         }
 
+        // Android 15+ 强制 edge-to-edge 后 manifest 的 adjustResize 对 target 35+ 已失效，
+        // 这里自己把 IME/刘海内边距加到滚动容器上，保证「盖章存档」永远可滚到键盘上方
+        android.view.View scroll = findViewById(R.id.quickScroll);
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(scroll, (v, insets) -> {
+            androidx.core.graphics.Insets bars = insets.getInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                            | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+            androidx.core.graphics.Insets ime = insets.getInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.ime());
+            v.setPadding(bars.left, bars.top, bars.right,
+                    Math.max(bars.bottom, ime.bottom));
+            return androidx.core.view.WindowInsetsCompat.CONSUMED;
+        });
+
         Intent intent = getIntent();
         editId = intent.getLongExtra(EXTRA_ID, -1);
 
@@ -121,7 +135,6 @@ public class QuickRecordActivity extends Activity {
         if (editId >= 0) {
             tvTitle.setText(R.string.edit_record_title);
             tvEditTime.setVisibility(android.view.View.VISIBLE);
-            updateEditTimeText();
             // 记账时间也可变更（补记错日期/时间的场景）：点按 → 日期 + 时间选择器
             tvEditTime.setOnClickListener(v -> showDateTimeEditor());
             btnSave.setText(R.string.edit_save);
@@ -145,6 +158,10 @@ public class QuickRecordActivity extends Activity {
             }
         }
 
+        // 时间行必须在 bindExtras/bindQueueEntry 之后渲染：createdAt 由它们从 extras/队列赋值，
+        // 之前先渲染会显示成"当前时间"（v1.6 修）
+        if (editId >= 0) updateEditTimeText();
+
         // 键盘上直接点确认也可保存，少一次点击
         etNote.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
@@ -158,8 +175,44 @@ public class QuickRecordActivity extends Activity {
         if (editId < 0) {
             etAmount.requestFocus();
             getWindow().setSoftInputMode(
-                    android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+                    android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
+                            | android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         }
+    }
+
+    /**
+     * 弹窗已在前台时又来一笔付款：系统只回调这里（manifest singleTop + trigger 的 SINGLE_TOP），
+     * 不再销毁重建 Activity——否则用户正在输入/编辑的内容会被静默清空（v1.6 修）。
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        // 弹窗确实在前台：撤销兜底通知，并标记已展示（onCreate 不会再走一遍）
+        PaymentListenerService.popupShown = true;
+        android.app.NotificationManager nm =
+                (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        nm.cancel(PaymentListenerService.BACKUP_NOTIF_ID);
+
+        if (editId >= 0) {
+            // 正在改旧记录：绝不打断，新付款留在队列里
+            Toast.makeText(this, R.string.queue_arrived_editing, Toast.LENGTH_LONG).show();
+            return;
+        }
+        List<PendingPayments.Entry> queue = PendingPayments.all(this);
+        if (queue.isEmpty()) return;
+        if (currentEntry != null) {
+            queueTotal = queue.size();
+            updateQueueUi();
+        } else if (etAmount.getText().toString().trim().isEmpty()
+                && etNote.getText().toString().trim().isEmpty()) {
+            // 手输但还没填任何内容：直接切到这笔新付款
+            queueTotal = queue.size();
+            queueSaved = 0;
+            bindQueueEntry(queue.get(0));
+        }
+        Toast.makeText(this, getString(R.string.queue_arrived, queue.size()),
+                Toast.LENGTH_SHORT).show();
     }
 
     /** 手动入口 / 编辑 / 无队列：按 intent extras 绑定 */
@@ -233,15 +286,26 @@ public class QuickRecordActivity extends Activity {
             btnSkip.setVisibility(android.view.View.GONE);
             return;
         }
-        // Entry 无 equals，按 付款时间+金额 字段匹配定位（remove 同理）
+        // 按唯一 id 定位（同毫秒孪生条目按 createdAt+amount 会错位，v1.6.4 修）；
+        // 队列里已找不到（被外部移除）则隐藏计数
         List<PendingPayments.Entry> rest = PendingPayments.all(this);
-        int idx = 0;
+        int idx = -1;
         for (int i = 0; i < rest.size(); i++) {
             PendingPayments.Entry it = rest.get(i);
-            if (it.createdAt == currentEntry.createdAt && it.amount == currentEntry.amount) {
+            boolean match = currentEntry.id != 0 && it.id == currentEntry.id;
+            if (!match && currentEntry.id == 0 && it.id == 0
+                    && it.createdAt == currentEntry.createdAt && it.amount == currentEntry.amount) {
+                match = true;
+            }
+            if (match) {
                 idx = i + 1;
                 break;
             }
+        }
+        if (idx <= 0) {
+            tvQueuePos.setVisibility(android.view.View.GONE);
+            btnSkip.setVisibility(android.view.View.GONE);
+            return;
         }
         tvQueuePos.setVisibility(android.view.View.VISIBLE);
         tvQueuePos.setText(getString(R.string.queue_pos, idx, rest.size()));
@@ -290,7 +354,7 @@ public class QuickRecordActivity extends Activity {
         RecordDbHelper db = RecordDbHelper.get(this);
         String note = etNote.getText().toString().trim();
         if (editId >= 0) {
-            db.update(editId, amount, selectedCategory, note);
+            db.update(editId, amount, selectedCategory, note, createdAt);
             Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show();
             finish();
             return;

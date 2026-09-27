@@ -36,9 +36,11 @@ public class PaymentListenerService extends NotificationListenerService {
     private static final String TAG = "PayListener";
 
     private static final Set<String> PAY_PACKAGES = new HashSet<>();
-    // 两种金额写法：¥25.80 / 25.80元（支付宝常用"元"后缀）
-    private static final Pattern AMOUNT_PATTERN =
-            Pattern.compile("(?:[¥￥]|人民币)\\s*([0-9]+(?:\\.[0-9]{1,2})?)|([0-9]+(?:\\.[0-9]{1,2})?)\\s*元");
+    // 金额写法：¥25.80 / 25.80元 / 人民币1,234.56元（银行短信与部分凭证带千分位逗号，必须一起吃进来，
+    // 否则 "人民币1,234.56" 只会匹配到 "1" —— 金额静默记错，v1.6 修）；分隔符在 parseAmount 里剔除
+    static final String AMOUNT_NUM = "[0-9][0-9,，]*(?:\\.[0-9]{1,2})?";
+    private static final Pattern AMOUNT_PATTERN = Pattern.compile(
+            "(?:[¥￥]|人民币)\\s*(" + AMOUNT_NUM + ")|(" + AMOUNT_NUM + ")\\s*元");
     // 支出侧关键词：覆盖支付、付款、转账给他人、红包发放、平台/银行卡扣款（繁简双套，微信繁体用户实测必需）
     // "支出"：支付宝真实文案「交易提醒：你有一笔x.xx元的支出」
     private static final String[] PAY_KEYWORDS = {
@@ -62,13 +64,27 @@ public class PaymentListenerService extends NotificationListenerService {
     static final int BACKUP_NOTIF_ID = 2001;
     /** 弹窗是否已实际展示（QuickRecordActivity 标记），决定是否发兜底通知 */
     static volatile boolean popupShown;
-    private static final android.os.Handler MAIN = new android.os.Handler(android.os.Looper.getMainLooper());
+    /** 主线程 Handler：懒加载，避免类初始化就碰 Android API（纯解析逻辑要能被 JVM 单元测试调用） */
+    private static android.os.Handler MAIN;
+
+    private static android.os.Handler main() {
+        if (MAIN == null) {
+            MAIN = new android.os.Handler(android.os.Looper.getMainLooper());
+        }
+        return MAIN;
+    }
 
     /** 全局触发去重：同一笔扣款可能同时被短信和通知两个入口看到 */
     private static final Object TRIGGER_LOCK = new Object();
     private static double lastTriggerAmount = -1;
+    private static String lastTriggerSource;
     private static long lastTriggerAt;
-    private static final long SAME_AMOUNT_DEDUP_MS = 6_000;
+    /** 0 金额触发记录（读不到金额的通道先到）：随后同来源带真金额的触发应视为同一笔并入队两次 */
+    private static String lastZeroSource;
+    private static long lastZeroAt;
+    // 与通知 key 去重窗口一致：金额窗口小于 key 窗口时，同笔在两窗口间隙重投会双发（v1.6.4 统一）
+    private static final long SAME_AMOUNT_DEDUP_MS = 10_000;
+    private static final long ZERO_FOLLOWUP_MS = 8_000;
 
     /** 支付来源包名 → 展示名（日志/弹窗共用） */
     static String sourceName(String pkg) {
@@ -125,19 +141,20 @@ public class PaymentListenerService extends NotificationListenerService {
         }
 
         // 微信转账/红包回执结算（第三通道，真机实测最稳）：无障碍 armed + 回执通知 = 本人支出。
-        // 回执文本（[轉賬] 請收款 / [微信红包] 恭喜發財）会被常规规则当 not_payment 丢弃，须在此之前专项处理
-        if (sbn.getPackageName().equals("com.tencent.mm")
-                && PayAccessibilityService.isArmedWithin(90_000)) {
+        // 回执文本（[轉賬] 請收款 / [微信红包] 恭喜發財）会被常规规则当 not_payment 丢弃，须在此之前专项处理；
+        // tryConsumeArmed 原子消费——与无障碍通道并发结算同一笔时只成功一方
+        if (sbn.getPackageName().equals("com.tencent.mm")) {
             boolean transferReceipt = text.contains("[轉賬]") || text.contains("[转账]");
             boolean redPacketReceipt = text.contains("[微信紅包]") || text.contains("[微信红包]")
                     || text.contains("恭喜發財") || text.contains("恭喜发财");
             if (transferReceipt || redPacketReceipt) {
-                double amount = PayAccessibilityService.armedAmount();
-                String label = redPacketReceipt ? "微信红包" : "微信转账";
-                log(sbn.getPackageName(), text, "acc_trigger", amount);
-                PayAccessibilityService.resetArmed(); // 防其他通道重复触发
-                trigger(this, amount, "微信", label);
-                return;
+                double amount = PayAccessibilityService.tryConsumeArmed(90_000);
+                if (amount >= 0) {
+                    String label = redPacketReceipt ? "微信红包" : "微信转账";
+                    log(sbn.getPackageName(), text, "acc_trigger", amount);
+                    trigger(this, amount, "微信", label);
+                    return;
+                }
             }
         }
 
@@ -190,16 +207,48 @@ public class PaymentListenerService extends NotificationListenerService {
     public static void trigger(Context context, double amount, String source, String noteHint) {
         synchronized (TRIGGER_LOCK) {
             long now = System.currentTimeMillis();
-            // 同金额 6 秒内视为同一笔扣款（短信+通知双入口）；不同金额/超时则正常入队
-            if (amount > 0 && amount == lastTriggerAmount && now - lastTriggerAt < SAME_AMOUNT_DEDUP_MS) {
+            // 同金额+同来源窗口期内视为同一笔扣款（短信+通知/多通道双入口）
+            if (amount > 0 && amount == lastTriggerAmount
+                    && (source == null ? lastTriggerSource == null : source.equals(lastTriggerSource))
+                    && now - lastTriggerAt < SAME_AMOUNT_DEDUP_MS) {
                 Log.d(TAG, "dedup trigger amount=" + amount);
                 if (context instanceof PaymentListenerService) {
                     ((PaymentListenerService) context).log(source, null, "dup_amount", amount);
                 }
                 return;
             }
-            lastTriggerAmount = amount;
-            lastTriggerAt = now;
+            // 0 金额触发（读不到金额的通道）先入队后，同来源 8s 内带真金额的触发是同一笔：
+            // 抑制后者，避免队列出现"一条空金额+一条真金额"的双记（v1.6.4 修）
+            if (amount > 0 && lastZeroSource != null
+                    && source != null && source.equals(lastZeroSource)
+                    && now - lastZeroAt < ZERO_FOLLOWUP_MS) {
+                Log.d(TAG, "dedup zero-followup amount=" + amount);
+                if (context instanceof PaymentListenerService) {
+                    ((PaymentListenerService) context).log(source, null, "dup_zero_followup", amount);
+                }
+                return;
+            }
+            // 反向：真金额已入队后，同来源 8s 内 0 金额触发也是同一笔（另一通道读不到金额）
+            if (amount <= 0 && lastTriggerSource != null
+                    && source != null && source.equals(lastTriggerSource)
+                    && now - lastTriggerAt < ZERO_FOLLOWUP_MS) {
+                Log.d(TAG, "dedup zero-after-amount");
+                if (context instanceof PaymentListenerService) {
+                    ((PaymentListenerService) context).log(source, null, "dup_zero_after", amount);
+                }
+                return;
+            }
+            // 只记录"有效金额"：金额读不到（0/-1）的触发若也写进去，会把判重基准冲成 0，
+            // 同一笔付款随后被另一条通道以真实金额再触发一次 → 队列里出现两条（v1.6 修）
+            if (amount > 0) {
+                lastTriggerAmount = amount;
+                lastTriggerSource = source;
+                lastTriggerAt = now;
+                lastZeroSource = null;
+            } else {
+                lastZeroSource = source;
+                lastZeroAt = now;
+            }
         }
         Context app = context.getApplicationContext();
         PendingPayments.add(app, amount > 0 ? amount : 0, System.currentTimeMillis(), source, noteHint);
@@ -217,7 +266,9 @@ public class PaymentListenerService extends NotificationListenerService {
             Log.d(TAG, "overlay route, amount=" + amount);
             route = "queued_popup";
             Intent intent = new Intent(app, QuickRecordActivity.class);
+            // SINGLE_TOP：弹窗已在前台时只回调 onNewIntent，不销毁重建（否则用户已输入内容被清空）
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
                     | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
             if (amount > 0) intent.putExtra(QuickRecordActivity.EXTRA_AMOUNT, amount);
             app.startActivity(intent);
@@ -233,7 +284,7 @@ public class PaymentListenerService extends NotificationListenerService {
         // 小米 HyperOS 等 ROM 会静默拦截"后台弹出界面"，悬浮窗权限给了也没用。
         // 延迟 900ms 发高优兜底通知（固定 id 更新，不连环弹）：若弹窗已实际展示则跳过。
         final String initialRoute = route;
-        MAIN.postDelayed(() -> {
+        main().postDelayed(() -> {
             if (!popupShown) {
                 Log.d(TAG, "popup not shown, posting backup notification");
                 if ("queued_popup".equals(initialRoute)) {
@@ -284,12 +335,19 @@ public class PaymentListenerService extends NotificationListenerService {
         Matcher m = AMOUNT_PATTERN.matcher(text);
         if (m.find()) {
             String v = m.group(1) != null ? m.group(1) : m.group(2);
-            try {
-                return Double.parseDouble(v);
-            } catch (NumberFormatException ignored) {
-            }
+            return parseNumber(v);
         }
         return -1;
+    }
+
+    /** 金额字符串 → double：剔除千分位逗号（半角/全角）；非法返回 -1 */
+    static double parseNumber(String v) {
+        if (v == null) return -1;
+        try {
+            return Double.parseDouble(v.replace(",", "").replace("，", ""));
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
     }
 
     /** 兜底通知：固定 id 更新不堆叠；setOnlyAlertOnce 让连续付款只响一次提醒 */
@@ -316,13 +374,16 @@ public class PaymentListenerService extends NotificationListenerService {
         String title;
         String body;
         if (count >= 2) {
-            title = String.format(context.getString(R.string.notif_multi_title), count);
-            body = String.format(context.getString(R.string.notif_multi_text), sum);
+            title = String.format(java.util.Locale.CHINA,
+                    context.getString(R.string.notif_multi_title), count);
+            body = String.format(java.util.Locale.CHINA,
+                    context.getString(R.string.notif_multi_text), sum);
         } else {
             double single = queue.isEmpty() ? 0 : queue.get(queue.size() - 1).amount;
             title = context.getString(R.string.record_notification_title);
             body = single > 0
-                    ? String.format(context.getString(R.string.record_notification_text_fmt), single)
+                    ? String.format(java.util.Locale.CHINA,
+                            context.getString(R.string.record_notification_text_fmt), single)
                     : context.getString(R.string.record_notification_text);
         }
 

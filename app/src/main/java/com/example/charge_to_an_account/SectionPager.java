@@ -9,7 +9,7 @@ import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
-import android.view.animation.DecelerateInterpolator;
+import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
 
 /**
@@ -65,6 +65,8 @@ public class SectionPager extends FrameLayout {
         float w = getWidth();
         for (int i = 0; i < getChildCount(); i++) {
             View p = page(i);
+            p.setScaleX(1f); // 清掉过渡里留下的缩放
+            p.setScaleY(1f);
             if (i == currentPage) {
                 p.setAlpha(1f);
                 p.setTranslationX(0);
@@ -77,15 +79,21 @@ public class SectionPager extends FrameLayout {
         t = 0;
     }
 
-    /** 过渡中的每帧布局：dir=+1 新版从右进，-1 从左进 */
+    /** 过渡中的每帧布局：dir=+1 新版从右进，-1 从左进。
+     *  旧版退让（位移 + 轻微缩小 + 淡出），新版滑入并回正缩放，做出层次感 */
     private void applyTransition(float w) {
         View out = page(currentPage);
         View in = page(pendingTarget);
         int dir = pendingTarget > currentPage ? 1 : -1;
-        in.setTranslationX(dir * w * (1 - t));
-        in.setAlpha(0.4f + 0.6f * t);
-        out.setTranslationX(-dir * w * 0.35f * t);
-        out.setAlpha(1f - 0.6f * t);
+        float eased = 1f - (1f - t) * (1f - t); // 位移用减速曲线，收尾更"润"
+        in.setTranslationX(dir * w * 0.35f * (1f - eased));
+        in.setAlpha(0.2f + 0.8f * t);
+        in.setScaleX(0.985f + 0.015f * eased);
+        in.setScaleY(0.985f + 0.015f * eased);
+        out.setTranslationX(-dir * w * 0.22f * eased);
+        out.setAlpha(1f - 0.55f * t);
+        out.setScaleX(1f - 0.015f * eased);
+        out.setScaleY(1f - 0.015f * eased);
     }
 
     private void animateT(float from, float to) {
@@ -97,8 +105,8 @@ public class SectionPager extends FrameLayout {
             onPageSelected.onPageSelected(pendingTarget);
         }
         animator = ValueAnimator.ofFloat(from, to);
-        animator.setDuration(240);
-        animator.setInterpolator(new DecelerateInterpolator());
+        animator.setDuration(260);
+        animator.setInterpolator(new PathInterpolator(0.2f, 0f, 0f, 1f));
         animator.addUpdateListener(a -> {
             t = (float) a.getAnimatedValue();
             applyTransition(Math.max(getWidth(), 1));
@@ -124,6 +132,29 @@ public class SectionPager extends FrameLayout {
         animator.start();
     }
 
+    /**
+     * 手势开始时把进行中的翻版动画就地收尾。
+     * 原来直接 cancel()：onAnimationEnd 因 cancelled 直接返回，既不 commit 也不复位，
+     * 页面会永远停在半透明中间态、currentPage 与视觉不符（v1.6.3 修）。
+     */
+    private void settleAnimator() {
+        if (animator == null || !animator.isRunning()) return;
+        float cur = t;
+        animator.cancel();
+        if (pendingTarget >= 0 && cur > 0.5f) {
+            commit(); // 过半就顺势翻过去
+        } else {
+            int wasTarget = pendingTarget;
+            pendingTarget = -1;
+            t = 0;
+            applyRestState();
+            // 回退时要收回动画开始时提前移动的导航高亮
+            if (wasTarget >= 0 && onPageSelected != null) {
+                onPageSelected.onPageSelected(currentPage);
+            }
+        }
+    }
+
     private void commit() {
         currentPage = pendingTarget;
         pendingTarget = -1;
@@ -134,16 +165,11 @@ public class SectionPager extends FrameLayout {
     /** 导航点按切换 */
     public void setPage(int target) {
         if (animator != null && animator.isRunning()) {
-            animator.cancel(); // onAnimationEnd(c cancelled) 不会收尾，这里手动处理半途状态
             if (t > 0.5f && pendingTarget >= 0) {
-                animateT(t, 1f); // 先完成进行中的过渡
+                animateT(t, 1f); // 先完成进行中的过渡，再接受新目标
                 return;
             }
-            if (pendingTarget >= 0) {
-                pendingTarget = -1;
-                t = 0;
-            }
-            applyRestState();
+            settleAnimator(); // 过半前：就地复位（连同导航高亮）
         }
         if (target == currentPage || target < 0 || target >= getChildCount()) return;
         pendingTarget = target;
@@ -155,7 +181,7 @@ public class SectionPager extends FrameLayout {
         downY = y;
         dragSign = 0;
         dragging = false;
-        stopAnimator();
+        settleAnimator(); // 别直接 cancel：会把页面留在半透明中间态（v1.6.3 修）
         if (tracker == null) tracker = VelocityTracker.obtain();
         else tracker.clear();
         tracker.addMovement(MotionEvent.obtain(0, System.currentTimeMillis(),

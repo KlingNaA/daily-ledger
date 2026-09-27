@@ -106,11 +106,13 @@ public class RecordDbHelper extends SQLiteOpenHelper {
         return getWritableDatabase().insert(TABLE, null, cv);
     }
 
-    public int update(long id, double amount, String category, String note) {
+    /** 更新一笔记录；createdAt 可一并改写（编辑弹窗里改记账时间后必须传真实值，否则时间改动不落库） */
+    public int update(long id, double amount, String category, String note, long createdAt) {
         ContentValues cv = new ContentValues();
         cv.put(COL_AMOUNT, amount);
         cv.put(COL_CATEGORY, category);
         cv.put(COL_NOTE, note);
+        cv.put(COL_CREATED_AT, createdAt);
         rememberMerchant(note, category);
         return getWritableDatabase().update(TABLE, cv, COL_ID + "=?",
                 new String[]{String.valueOf(id)});
@@ -209,10 +211,31 @@ public class RecordDbHelper extends SQLiteOpenHelper {
         if (categories().contains(name)) return false;
         ContentValues cv = new ContentValues();
         cv.put("name", name);
-        cv.put("sort", Integer.MAX_VALUE);
+        // 追加到末尾：取现有最大 sort +1（若一律写 Integer.MAX_VALUE，多个自定义分类会退化成按名字排序）
+        cv.put("sort", nextCategorySort());
         cv.put("builtin", 0);
         return getWritableDatabase().insertWithOnConflict("categories", null, cv,
                 SQLiteDatabase.CONFLICT_IGNORE) != -1;
+    }
+
+    /** 新分类追加在末尾用的 sort：取当前最大 sort+1；
+     *  老版本遗留的 Integer.MAX_VALUE（会导致并列、退化成按名字排序）先按现顺序重新编号 */
+    private int nextCategorySort() {
+        int max = -1;
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT MAX(sort) FROM categories", null)) {
+            if (c.moveToFirst() && !c.isNull(0)) max = c.getInt(0);
+        }
+        if (max >= Integer.MAX_VALUE - 1000) {
+            List<String> all = categories();
+            ContentValues cv = new ContentValues();
+            for (int i = 0; i < all.size(); i++) {
+                cv.clear();
+                cv.put("sort", i);
+                getWritableDatabase().update("categories", cv, "name=?", new String[]{all.get(i)});
+            }
+            return all.size();
+        }
+        return max + 1;
     }
 
     /** 删除分类；被流水引用或内置分类返回 false */
@@ -328,7 +351,9 @@ public class RecordDbHelper extends SQLiteOpenHelper {
     }
 
     private static String normalizeKeyword(String note) {
-        String head = note.length() > 4 ? note.substring(0, 4) : note;
-        return head.trim().toLowerCase(Locale.ROOT);
+        // 先 trim 再取前 4 字：前导空白会吃掉字符预算（"  美团外卖"曾存成"美团"，v1.6.4 修）
+        String trimmed = note.trim();
+        String head = trimmed.length() > 4 ? trimmed.substring(0, 4) : trimmed;
+        return head.toLowerCase(Locale.ROOT);
     }
 }

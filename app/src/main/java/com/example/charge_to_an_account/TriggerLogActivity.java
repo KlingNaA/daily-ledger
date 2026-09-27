@@ -73,7 +73,8 @@ public class TriggerLogActivity extends Activity {
 
             TextView head = new TextView(this);
             String resultLabel = resultLabel(e.result);
-            boolean triggered = e.result.startsWith("queued") || e.result.equals("acc_trigger");
+            boolean triggered = e.result.startsWith("queued") || e.result.equals("acc_trigger")
+                    || e.result.equals("popup_blocked");
             head.setText(String.format(Locale.CHINA, "%s · %s · %s",
                     fmt.format(new Date(e.at)),
                     displaySource(e.source), resultLabel));
@@ -134,7 +135,6 @@ public class TriggerLogActivity extends Activity {
             case "acc_debug_page": return getString(R.string.log_result_acc_debug_page);
             case "acc_armed": return getString(R.string.log_result_acc_armed);
             case "acc_pay_dialog": return getString(R.string.log_result_acc_pay_dialog);
-            case "acc_settle_read": return getString(R.string.log_result_acc_settle_read);
             case "acc_settle_no_receipt": return getString(R.string.log_result_acc_settle_no_receipt);
             case "acc_no_root": return getString(R.string.log_result_acc_no_root);
             case "acc_empty_page": return getString(R.string.log_result_acc_empty_page);
@@ -163,6 +163,7 @@ public class TriggerLogActivity extends Activity {
         String name = "记账触发日志_" + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.CHINA)
                 .format(new Date()) + ".csv";
         byte[] bytes = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String where;
         try {
             if (android.os.Build.VERSION.SDK_INT >= 29) {
                 android.content.ContentValues cv = new android.content.ContentValues();
@@ -175,13 +176,15 @@ public class TriggerLogActivity extends Activity {
                     if (os == null) throw new IllegalStateException("stream null");
                     os.write(bytes);
                 }
+                where = "下载/" + name;
             } else {
                 java.io.File file = new java.io.File(getExternalFilesDir(null), name);
                 try (java.io.FileOutputStream os = new java.io.FileOutputStream(file)) {
                     os.write(bytes);
                 }
+                where = file.getAbsolutePath(); // API<29 落在应用目录，提示不能写"下载/"（v1.6 修）
             }
-            Toast.makeText(this, getString(R.string.export_done, "下载/" + name), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.export_done, where), Toast.LENGTH_LONG).show();
         } catch (Exception e) {
             Toast.makeText(this, R.string.export_failed, Toast.LENGTH_LONG).show();
         }

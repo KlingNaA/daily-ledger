@@ -24,7 +24,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingHorizontal="16dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:paddingTop="10dp">
 
                 <View
@@ -75,7 +76,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:paddingVertical="4dp">
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp">
 
                     <TextView
                         android:id="@+id/tvMastheadDate"
@@ -146,7 +148,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="8dp"
                         android:background="@drawable/bg_dialog_paper"
                         android:orientation="vertical"
@@ -175,7 +178,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="12dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
@@ -189,7 +193,8 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginHorizontal="8dp"
+                            android:layout_marginStart="8dp"
+                            android:layout_marginEnd="8dp"
                             android:text="@string/section_chart"
                             android:textColor="@color/ink"
                             android:textSize="12sp"
@@ -207,7 +212,8 @@
                         android:id="@+id/barChart"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:paddingHorizontal="16dp"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
                         android:paddingTop="8dp" />
 
                     <!-- 启事：权限引导 -->
@@ -215,7 +221,8 @@
                         android:id="@+id/layoutPermissions"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="8dp"
                         android:background="@drawable/bg_dashed_notice"
                         android:orientation="vertical"
@@ -255,7 +262,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="12dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
@@ -269,7 +277,8 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginHorizontal="8dp"
+                            android:layout_marginStart="8dp"
+                            android:layout_marginEnd="8dp"
                             android:text="@string/section_records"
                             android:textColor="@color/ink"
                             android:textSize="12sp"
@@ -288,18 +297,22 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:paddingHorizontal="16dp"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
                         android:paddingBottom="16dp" />
                 </LinearLayout>
             </ScrollView>
 
-            <!-- 记一笔：印章条 -->
+            <!-- 记一笔：印章条（留出边距，圆角才看得出来） -->
             <Button
                 android:id="@+id/fabAdd"
                 style="@style/Ledger.Button.Stamp"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_margin="0dp"
+                android:layout_height="54dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="8dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:text="@string/btn_add_record" />
@@ -318,7 +331,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingHorizontal="16dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:paddingTop="10dp">
 
                 <View
@@ -368,7 +382,8 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="4dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
                     android:text="@string/stats_edition"
                     android:textColor="@color/ink_soft"
                     android:textSize="11sp" />
@@ -425,7 +440,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="8dp"
                         android:background="@drawable/bg_dialog_paper"
                         android:orientation="vertical"
@@ -462,7 +478,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="12dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
@@ -476,7 +493,8 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginHorizontal="8dp"
+                            android:layout_marginStart="8dp"
+                            android:layout_marginEnd="8dp"
                             android:text="@string/stats_section_months"
                             android:textColor="@color/ink"
                             android:textSize="12sp"
@@ -494,13 +512,15 @@
                         android:id="@+id/monthBars"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="8dp" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="8dp"
                         android:gravity="center"
                         android:text="@string/stats_hint"
@@ -512,7 +532,8 @@
                         android:id="@+id/layoutSmsNotice"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="12dp"
                         android:layout_marginBottom="16dp"
                         android:background="@drawable/bg_dashed_notice"
@@ -560,7 +581,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingHorizontal="16dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:paddingTop="10dp">
 
                 <View
@@ -610,7 +632,8 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="4dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
                     android:text="@string/mine_edition"
                     android:textColor="@color/ink_soft"
                     android:textSize="11sp" />
@@ -636,7 +659,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="12dp"
                         android:background="@drawable/bg_dashed_notice"
                         android:orientation="vertical"
@@ -878,6 +902,7 @@
                                 android:id="@+id/btnBattery"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
+                                android:layout_marginStart="12dp"
                                 android:minWidth="0dp"
                                 android:text="@string/btn_go" />
                         </LinearLayout>
@@ -887,7 +912,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="12dp"
                         android:background="@drawable/bg_dashed_notice"
                         android:orientation="vertical"
@@ -907,7 +933,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
-                            android:paddingVertical="6dp"
+                            android:paddingTop="6dp"
+                            android:paddingBottom="6dp"
                             android:text="@string/queue_empty"
                             android:textColor="@color/ink_faint"
                             android:textSize="14sp" />
@@ -963,7 +990,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="12dp"
                         android:background="@drawable/bg_dashed_notice"
                         android:orientation="vertical"
@@ -996,7 +1024,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="16dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
                         android:layout_marginTop="12dp"
                         android:background="@drawable/bg_dialog_paper"
                         android:orientation="vertical"
@@ -1059,8 +1088,9 @@
                 android:id="@+id/navIndicator"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_marginHorizontal="6dp"
-                android:background="@color/seal_red" />
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_nav_indicator" />
         </FrameLayout>
 
         <LinearLayout
@@ -1075,10 +1105,12 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginHorizontal="6dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
                 android:background="@drawable/nav_tab_bg"
                 android:gravity="center"
-                android:paddingVertical="14dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp"
                 android:text="@string/nav_ledger"
                 android:textSize="14sp" />
 
@@ -1087,10 +1119,12 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginHorizontal="6dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
                 android:background="@drawable/nav_tab_bg"
                 android:gravity="center"
-                android:paddingVertical="14dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp"
                 android:text="@string/nav_stats"
                 android:textSize="14sp" />
 
@@ -1099,10 +1133,12 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginHorizontal="6dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
                 android:background="@drawable/nav_tab_bg"
                 android:gravity="center"
-                android:paddingVertical="14dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp"
                 android:text="@string/nav_mine"
                 android:textSize="14sp" />
         </LinearLayout>

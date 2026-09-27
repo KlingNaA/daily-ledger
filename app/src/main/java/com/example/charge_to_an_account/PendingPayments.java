@@ -8,6 +8,7 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 待记账队列：连续付款（金额各不相同）先入队，用户腾出手后打开弹窗逐笔确认。
@@ -15,14 +16,17 @@ import java.util.List;
  */
 public class PendingPayments {
 
-    /** 一笔待记的付款 */
+    /** 一笔待记的付款。id 全局唯一（毫秒时间戳×1000+自增）：同毫秒双入队时
+     *  按 createdAt+amount 匹配会错删孪生条目，一切定位/删除以 id 为准（v1.6.4 修） */
     public static class Entry {
+        public final long id;
         public final double amount;   // 付款金额；<=0 表示通知里没解析出金额，需手填
         public final long createdAt;  // 付款时间（记账时作为记录时间）
         public final String source;   // 来源：微信/支付宝/银行短信…
         public final String note;     // 商家提示（通知标题，用于备注预填与分类记忆）；可为空
 
-        Entry(double amount, long createdAt, String source, String note) {
+        Entry(long id, double amount, long createdAt, String source, String note) {
+            this.id = id;
             this.amount = amount;
             this.createdAt = createdAt;
             this.source = source == null ? "" : source;
@@ -31,6 +35,8 @@ public class PendingPayments {
     }
 
     private static final long EXPIRE_MS = 24 * 3600 * 1000L;
+    /** 起始值取当前毫秒×1000：单调递增且重启后天然大于历史值（时钟回拨可忽略） */
+    private static final AtomicLong ID_SEQ = new AtomicLong(System.currentTimeMillis() * 1000);
 
     private static SharedPreferences prefs(Context c) {
         return c.getApplicationContext().getSharedPreferences("pending_payments", Context.MODE_PRIVATE);
@@ -39,7 +45,7 @@ public class PendingPayments {
     public static synchronized void add(Context c, double amount, long at, String source, String note) {
         try {
             List<Entry> list = parse(prefs(c).getString("queue", "[]"));
-            list.add(new Entry(amount, at, source, note));
+            list.add(new Entry(ID_SEQ.incrementAndGet(), amount, at, source, note));
             save(c, list);
         } catch (Exception ignored) {
         }
@@ -58,10 +64,16 @@ public class PendingPayments {
     public static synchronized void remove(Context c, Entry e) {
         try {
             List<Entry> list = parse(prefs(c).getString("queue", "[]"));
+            // 按 id 精确删除（id 全局唯一）；旧数据无 id 时回退 createdAt+amount+source 匹配
             for (int i = 0; i < list.size(); i++) {
                 Entry it = list.get(i);
-                if (it.createdAt == e.createdAt && it.amount == e.amount
+                boolean match = e.id != 0 && it.id == e.id;
+                if (!match && e.id == 0 && it.id == 0
+                        && it.createdAt == e.createdAt && it.amount == e.amount
                         && it.source.equals(e.source)) {
+                    match = true;
+                }
+                if (match) {
                     list.remove(i);
                     break;
                 }
@@ -80,7 +92,8 @@ public class PendingPayments {
             if (o == null) continue;
             long at = o.optLong("t", 0);
             if (now - at > EXPIRE_MS) continue; // 过期丢弃
-            list.add(new Entry(o.optDouble("a", 0), at,
+            // 旧格式无 id 存 0（回退匹配用）；新条目由 add 分配
+            list.add(new Entry(o.optLong("i", 0), o.optDouble("a", 0), at,
                     o.optString("s", ""), o.optString("n", "")));
         }
         return list;
@@ -91,6 +104,7 @@ public class PendingPayments {
             JSONArray arr = new JSONArray();
             for (Entry e : list) {
                 JSONObject o = new JSONObject();
+                o.put("i", e.id);
                 o.put("a", e.amount);
                 o.put("t", e.createdAt);
                 o.put("s", e.source);

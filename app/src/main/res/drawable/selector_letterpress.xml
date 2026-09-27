@@ -1,16 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 铅字分类块：未选中 = 细墨框；选中 = 满版墨色反白 -->
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- 铅字分类块：未选中 = 细墨框；选中 = 满版墨色反白。圆角 + 状态切换淡变（"润"） -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:enterFadeDuration="140"
+    android:exitFadeDuration="140">
     <item android:state_checked="true">
         <shape android:shape="rectangle">
             <solid android:color="@color/ink" />
             <stroke android:width="1dp" android:color="@color/ink" />
+            <corners android:radius="@dimen/radius_chip" />
+        </shape>
+    </item>
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/paper_deep" />
+            <stroke android:width="1dp" android:color="@color/ink" />
+            <corners android:radius="@dimen/radius_chip" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
             <solid android:color="@android:color/transparent" />
             <stroke android:width="1dp" android:color="@color/ink" />
+            <corners android:radius="@dimen/radius_chip" />
         </shape>
     </item>
 </selector>

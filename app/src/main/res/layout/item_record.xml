@@ -6,7 +6,8 @@
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:background="@color/paper"
-    android:paddingVertical="10dp">
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
 
     <TextView
         android:id="@+id/tvCategory"
@@ -14,7 +15,8 @@
         android:layout_height="wrap_content"
         android:background="@drawable/selector_letterpress"
         android:gravity="center"
-        android:paddingVertical="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         android:textColor="@color/ink"
         android:textSize="13sp"
         android:textStyle="bold" />
@@ -34,8 +36,9 @@
 
             <TextView
                 android:id="@+id/tvNote"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="3"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="@color/ink"
@@ -45,7 +48,8 @@
                 android:layout_width="0dp"
                 android:layout_height="1dp"
                 android:layout_weight="1"
-                android:layout_marginHorizontal="6dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
                 android:layout_marginBottom="4dp"
                 android:background="@drawable/dotted_leader" />
 

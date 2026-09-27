@@ -17,6 +17,11 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.misc.transform import Transform
 
+try:  # 仅用于把小尺寸图标从安全尺寸缩回来；没装 Pillow 时退回按目标尺寸直接渲染
+    from PIL import Image
+except ImportError:
+    Image = None
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESIGN = os.path.join(ROOT, "design")
 RES = os.path.join(ROOT, "app", "src", "main", "res")
@@ -26,6 +31,8 @@ EDGE_CANDIDATES = [
     r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
 ]
 EDGE = next((c for c in EDGE_CANDIDATES if os.path.exists(c)), EDGE_CANDIDATES[0])
+# Edge headless 的截图在小窗口下会被裁切，统一按此尺寸渲染再缩放（见 rasterize）
+RASTER_SIZE = 512
 
 # 与 App 内部一致的配色
 PAPER = "#F5EFE2"
@@ -36,7 +43,7 @@ RULE = "#C9BFA8"
 RED = "#A63A2B"
 
 CHAR = "账"
-FONT_CANDIDATES = [os.path.join(os.environ.get("WINDIR", "C:\Windows"), "Fonts", f)
+FONT_CANDIDATES = [os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", f)
                    for f in ("simkai.ttf", "simsun.ttc")]
 
 
@@ -254,15 +261,37 @@ def rasterize(svg_path, png_path, size):
         f.write('<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
                 "*{margin:0;padding:0}img{display:block;width:100vw;height:100vh}"
                 f'</style></head><body><img src="file:///{svg_path.replace(chr(92), "/")}"></body></html>')
-    cmd = [
-        EDGE, "--headless", "--disable-gpu", "--hide-scrollbars",
-        "--force-device-scale-factor=1",
-        "--default-background-color=00000000",
-        f"--window-size={size},{size}",
-        f"--screenshot={png_path}",
-        "file:///" + wrapper.replace("\\", "/"),
-    ]
-    subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+    # Edge headless 在小于约 512px 的窗口上截出来的图是**裁切/空白**的（曾导致 xhdpi/xxhdpi
+    # 图标整张透明、192px 只有右下角一小块），因此统一按 RASTER_SIZE 渲染，再用 PIL 缩回目标尺寸。
+    render = max(size, RASTER_SIZE) if Image is not None else size
+    tmp_png = png_path if render == size else png_path + ".render.png"
+    for attempt in (1, 2):  # 渲染竞态兜底：空白图重试一次
+        cmd = [
+            EDGE, "--headless", "--disable-gpu", "--hide-scrollbars",
+            "--force-device-scale-factor=1",
+            "--default-background-color=00000000",
+            f"--window-size={render},{render}",
+            f"--screenshot={tmp_png}",
+            "file:///" + wrapper.replace("\\", "/"),
+        ]
+        subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+        if _has_content(tmp_png):
+            break
+        print(f"  ! blank render, retry {attempt}: {os.path.basename(png_path)} @{size}")
+    if render != size:
+        img = Image.open(tmp_png).convert("RGBA").resize((size, size), Image.LANCZOS)
+        img.save(png_path)
+        os.remove(tmp_png)
+
+
+def _has_content(png_path):
+    """截图是否真的画上了东西（全透明 = 渲染失败）"""
+    if not os.path.exists(png_path):
+        return False
+    if Image is None:
+        return os.path.getsize(png_path) > 1000
+    img = Image.open(png_path).convert("RGBA")
+    return any(a > 16 for a in img.getchannel("A").getdata())
 
 
 def main():

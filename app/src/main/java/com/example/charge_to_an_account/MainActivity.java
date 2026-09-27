@@ -47,7 +47,7 @@ public class MainActivity extends AppCompatActivity {
     private SectionPager pager;
     private TextView navLedger, navStats, navMine;
     private TextView tvNotifStatus, tvOverlayStatus, tvFsStatus, tvSmsStatus, tvMiuiStatus, tvAccStatus;
-    private View rowAcc, rowFullscreen, rowMiui, rowBattery, tvXiaomiHint;
+    private View rowFullscreen, rowMiui, rowBattery, tvXiaomiHint;
     private RecordDbHelper db;
     private final SimpleDateFormat dateFmt = new SimpleDateFormat("MM-dd HH:mm", Locale.CHINA);
     private final SimpleDateFormat mastheadDateFmt = new SimpleDateFormat("yyyy年M月d日 EEEE", Locale.CHINA);
@@ -89,7 +89,6 @@ public class MainActivity extends AppCompatActivity {
         tvSmsStatus = findViewById(R.id.tvSmsStatus);
         tvMiuiStatus = findViewById(R.id.tvMiuiStatus);
         tvAccStatus = findViewById(R.id.tvAccStatus);
-        rowAcc = findViewById(R.id.rowAcc);
         rowFullscreen = findViewById(R.id.rowFullscreen);
         rowMiui = findViewById(R.id.rowMiui);
         rowBattery = findViewById(R.id.rowBattery);
@@ -217,6 +216,8 @@ public class MainActivity extends AppCompatActivity {
         if (queue.isEmpty()) {
             tvQueueInfo.setText(R.string.queue_empty);
             tvQueueInfo.setTextColor(ContextCompat.getColor(this, R.color.ink_faint));
+            // 队列清空后必须把粗体还原，否则"待记队列空"会一直是粗体（v1.6 修）
+            tvQueueInfo.setTypeface(null, android.graphics.Typeface.NORMAL);
         } else {
             double sum = 0;
             for (PendingPayments.Entry e : queue) {
@@ -265,6 +266,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openOverlaySettings() {
+        // 说明：本应用并不画悬浮窗。"悬浮窗"权限在这里的作用是"允许从后台启动记账窗"的判定条件
+        // （Settings.canDrawOverlays 是 trigger() 选择弹窗/通知兜底路由的依据），
+        // 因此 manifest 保留 SYSTEM_ALERT_WINDOW、本页也保留该行，不要误删。
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:" + getPackageName())));
@@ -342,12 +346,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void styleNav(TextView tv, boolean selected) {
-        tv.setSelected(selected); // 驱动 nav_tab_bg：选中=加深底色
-        tv.setTextColor(ContextCompat.getColor(this, selected ? R.color.seal_red : R.color.ink_soft));
+        tv.setSelected(selected); // 驱动 nav_tab_bg：选中=加深底色（selector 自带 160ms 淡变）
+        animatedTextColor(tv, ContextCompat.getColor(this,
+                selected ? R.color.seal_red : R.color.ink_soft));
         tv.setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
     }
 
-    /** 印章红指示条曲线滑到当前版面（与翻页动画同步） */
+    /** 导航文字颜色渐变（直接 setTextColor 会"啪"地跳一下） */
+    private void animatedTextColor(TextView tv, int to) {
+        int from = tv.getCurrentTextColor();
+        if (from == to) return;
+        final android.animation.ArgbEvaluator evaluator = new android.animation.ArgbEvaluator();
+        android.animation.ValueAnimator anim = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        anim.setDuration(200);
+        anim.addUpdateListener(a -> tv.setTextColor(
+                (int) evaluator.evaluate((float) a.getAnimatedValue(), from, to)));
+        anim.start();
+    }
+
+    /** 印章红指示条滑到当前版面（与翻页动画同步，圆角短线 + 减速曲线） */
     private void animateNavIndicator(int page) {
         View track = findViewById(R.id.navIndicatorTrack);
         View indicator = findViewById(R.id.navIndicator);
@@ -361,12 +378,15 @@ public class MainActivity extends AppCompatActivity {
         float targetX = page * tabW;
         indicator.animate()
                 .translationX(targetX)
-                .setDuration(280)
-                .setInterpolator(new android.view.animation.OvershootInterpolator(0.8f))
+                .setDuration(260)
+                .setInterpolator(new android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
                 .start();
     }
 
     // ─────────────────────────── 记账页 ───────────────────────────
+
+    /** 上次渲染的月份标识：只有换月/首次进入才播放流水行入场动画（避免每次 onResume 都抖） */
+    private String lastMonthKey;
 
     private void refresh() {
         int year = currentMonth.get(Calendar.YEAR);
@@ -384,8 +404,13 @@ public class MainActivity extends AppCompatActivity {
         tvMonthTotal.setText(String.format(Locale.CHINA, getString(R.string.month_total_format), total));
         barChart.setData(sumByCategory);
 
+        String monthKey = year + "-" + month + "-" + records.size() + "-" + Math.round(total * 100);
+        boolean enterAnimate = !monthKey.equals(lastMonthKey);
+        lastMonthKey = monthKey;
+
         listRecords.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
+        int rowIndex = 0;
         for (Record r : records) {
             SwipeDeleteRow container = new SwipeDeleteRow(this);
             View row = inflater.inflate(R.layout.item_record, container, false);
@@ -397,22 +422,43 @@ public class MainActivity extends AppCompatActivity {
             ((TextView) row.findViewById(R.id.tvAmount)).setText(
                     String.format(Locale.CHINA, "¥%.2f", r.amount));
             container.setContent(row);
-            container.setOnRowLongPress(() -> editRecord(r));
+            container.setOnEdit(() -> editRecord(r));
             container.setOnDelete(() -> {
                 db.delete(r.id);
                 refresh();
             });
             listRecords.addView(container);
+            // 换月/首次进入：流水行错峰上浮淡入（与分类图的生长动画同时开始）
+            if (enterAnimate && rowIndex < 12) {
+                container.setAlpha(0f);
+                container.setTranslationY(dp(12));
+                container.animate()
+                        .alpha(1f)
+                        .translationY(0f)
+                        .setStartDelay(rowIndex * 30L)
+                        .setDuration(280)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f))
+                        .start();
+            }
+            rowIndex++;
         }
 
         if (records.isEmpty()) {
             TextView empty = new TextView(this);
             empty.setText(R.string.no_records);
-            empty.setPadding(32, 32, 32, 32);
+            empty.setPadding(dp(12), dp(12), dp(12), dp(12));
             empty.setGravity(android.view.Gravity.CENTER);
-            empty.setTextColor(0xFF888888);
+            empty.setTextColor(ContextCompat.getColor(this, R.color.ink_faint));
+            if (enterAnimate) {
+                empty.setAlpha(0f);
+                empty.animate().alpha(1f).setDuration(320).start();
+            }
             listRecords.addView(empty);
         }
+    }
+
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density + 0.5f);
     }
 
     private void editRecord(Record r) {
@@ -439,9 +485,12 @@ public class MainActivity extends AppCompatActivity {
             total += r.amount;
         }
         tvYearTotal.setText(String.format(Locale.CHINA, getString(R.string.month_total_format), total));
-        int monthsElapsed = statsYear == c.get(Calendar.YEAR) ? c.get(Calendar.MONTH) + 1 : 12;
+        // 月均口径：本年=已过月份数，往年=12。注意别复用上面被循环改写的 c——
+        // 它最终停在"最早那笔"的月份，会把月均算成 total/最早月份（v1.6 修）
+        Calendar now = Calendar.getInstance();
+        int monthsElapsed = statsYear == now.get(Calendar.YEAR) ? now.get(Calendar.MONTH) + 1 : 12;
         double avg = monthsElapsed > 0 ? total / monthsElapsed : 0;
-        tvYearAvg.setText(String.format(Locale.CHINA, "月均支出 ¥%.2f", avg));
+        tvYearAvg.setText(String.format(Locale.CHINA, getString(R.string.year_avg_fmt), avg));
         monthBars.setData(sums);
 
         boolean smsGranted = checkSelfPermission(Manifest.permission.RECEIVE_SMS)
@@ -460,7 +509,7 @@ public class MainActivity extends AppCompatActivity {
         StringBuilder sb = new StringBuilder("\uFEFF金额,分类,备注,时间\r\n");
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA);
         for (Record r : all) {
-            sb.append(r.amount).append(',')
+            sb.append(String.format(Locale.CHINA, "%.2f", r.amount)).append(',')
                     .append(csvCell(r.category)).append(',')
                     .append(csvCell(r.note)).append(',')
                     .append(f.format(new Date(r.createdAt))).append("\r\n");

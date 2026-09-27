@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 无 INTERNET 权限：数据物理上无法离开手机 -->
+    <!-- 不画悬浮窗：此权限用于判定"能否从后台弹出记账窗"（Settings.canDrawOverlays 决定弹窗/通知路由） -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -32,6 +33,7 @@
             android:name=".QuickRecordActivity"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Charge_to_an_account.QuickRecord"
             android:windowSoftInputMode="adjustResize" />
 

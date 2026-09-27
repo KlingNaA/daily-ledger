@@ -18,6 +18,8 @@
     <string name="err_amount_invalid">金额无效</string>
     <string name="queue_pos">第 %1$d / %2$d 笔待记</string>
     <string name="queue_saved">已记 %1$d/%2$d 笔，继续下一笔</string>
+    <string name="queue_arrived">又记到一笔付款，待记共 %1$d 笔</string>
+    <string name="queue_arrived_editing">有新付款待记：先存下这笔，稍后再确认（见「我的」页队列）</string>
     <string name="btn_skip_entry">这笔先不记，跳过 →</string>
     <string name="skipped">已跳过</string>
     <string name="notif_multi_title">刚付了 %1$d 笔？</string>
@@ -41,13 +43,11 @@
     <string name="btn_sms_permission">＋ 银行扣款短信兜底（可选）</string>
 
     <!-- 版面切换 / 统计页 -->
-    <string name="tab_ledger">壹 版 · 流 水</string>
-    <string name="tab_stats">贰 版 · 统 计</string>
     <string name="stats_title">统计年鉴</string>
     <string name="stats_subtitle">THE ANNUAL LEDGER · 全年一本账</string>
     <string name="stats_edition">全年总览 · 每月一笔</string>
     <string name="year_total_label">年度支出</string>
-    <string name="year_avg_label">月均支出</string>
+    <string name="year_avg_fmt">月均支出 ¥%1$.2f</string>
     <string name="stats_hint">印章红 = 当年支出最高的月份 · 左右滑动可翻版面</string>
     <string name="stats_section_months">本 年 各 月</string>
     <string name="year_prev">◀ 上一年</string>
@@ -55,6 +55,7 @@
     <string name="month_picker_title">选 择 年 月</string>
     <string name="ok">确定</string>
     <string name="delete_label">删 除</string>
+    <string name="edit_label">编 辑</string>
     <string name="sms_notice_title">启事 · 银行卡扣款兜底</string>
     <string name="sms_notice_body">美团、抖音等平台直连银行卡付款时可能不发通知。开启短信权限后，可从银行扣款短信（消费/支出/扣款…）识别记账。短信内容只在本机解析，同样不出手机。</string>
     <string name="sms_enabled">已开启：将从银行扣款短信识别支出</string>
@@ -71,23 +72,23 @@
     <string name="section_export">数 据 导 出</string>
     <string name="perm_acc">微信转账/红包识别（无障碍）</string>
     <string name="acc_service_label">记账·微信转账红包识别</string>
+    <string name="acc_service_desc">微信/支付宝出现支付成功页时自动弹出记账（仅本机判定，不联网）</string>
     <string name="acc_hint">微信好友转账/红包不发系统通知，开启本服务可在微信「支付成功/转账成功」页出现时自动弹出记账（仅监听微信与支付宝窗口，本机判定，无网络权限，不读其他应用）。</string>
     <string name="perm_notif">通知监听（自动弹窗）</string>
-    <string name="perm_overlay">悬浮窗（立即弹出）</string>
+    <string name="perm_overlay">悬浮窗（后台弹出记账窗）</string>
     <string name="perm_fullscreen">锁屏弹出提醒</string>
     <string name="perm_sms">银行短信兜底</string>
     <string name="perm_miui_popup">后台弹出界面（小米专用）</string>
     <string name="perm_miui_battery">自启动与省电策略（小米专用）</string>
     <string name="status_on">● 已开启</string>
     <string name="status_off">○ 未开启</string>
-    <string name="status_advice">！务必开启</string>
     <string name="status_undetectable">○ 无法检测·以系统为准</string>
     <string name="btn_go">前往</string>
     <string name="btn_export">导出全部记录为 CSV</string>
     <string name="export_hint">保存到系统「下载」目录，Excel / WPS 可直接打开，全程不联网</string>
     <string name="export_done">已导出到：%1$s</string>
     <string name="export_failed">导出失败，请重试</string>
-    <string name="about_line1">本地记账 v1.4 · 复古报纸版</string>
+    <string name="about_line1">本地记账 v1.6.4 · 复古报纸版</string>
     <string name="about_line2">本应用未申请 INTERNET 权限，所有数据只保存在本机</string>
     <string name="xiaomi_hint">小米/红米提示：请在本页逐一开启上述权限（尤其「后台弹出界面」与「自启动」），并将省电策略设为「无限制」，付款后的弹窗才不会被系统拦截。</string>
 
@@ -127,7 +128,6 @@
     <string name="log_result_acc_trigger">无障碍已触发</string>
     <string name="log_result_acc_armed">进入转账/红包页</string>
     <string name="log_result_acc_pay_dialog">支付密码框出现</string>
-    <string name="log_result_acc_settle_read">支付后核验回执…</string>
     <string name="log_result_acc_settle_no_receipt">未见支付回执（可能取消）</string>
     <string name="log_result_acc_page">支付页出现（观察）</string>
     <string name="log_result_acc_debug_page">窗口切换（调试）</string>
@@ -135,9 +135,7 @@
     <string name="log_result_acc_empty_page">页面无文本</string>
     <string name="log_result_acc_no_success">支付页无"成功"字样</string>
     <string name="log_result_acc_not_payment">页面非支出文本</string>
-    <string name="delete_confirm">删除这条记录？</string>
     <string name="delete">删除</string>
-    <string name="edit">编辑</string>
     <string name="cancel">取消</string>
     <string name="no_records">本月暂无记录</string>
 </resources>
